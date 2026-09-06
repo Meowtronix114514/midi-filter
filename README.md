@@ -47,9 +47,38 @@ pip install -r requirements.txt    # mido + python-rtmidi
 python midi_server.py              # 会自动打开浏览器
 ```
 
-Windows 下也可以直接双击 `start.bat`。
+## 完整上手（Windows）
 
-需要先装好一个虚拟 MIDI 端口（如 loopMIDI），并把 DAW 的输入设为该端口。
+### 1. 安装虚拟 MIDI 端口（loopMIDI）—— 必须！这是"中转站"
+
+本工具的工作方式：**键盘 → 工具（过滤）→ loopMIDI 虚拟口 → DAW**。
+没有 loopMIDI 就相当于没有桥。
+
+1. 下载：https://www.tobias-erichsen.de/software/loopmidi.html
+2. 安装并打开 loopMIDI
+3. 在下方文本框输入端口名（例如 `loopMIDI Port`），点 **+** 新建
+   —— 端口名出现在列表里 = 虚拟口创建成功 ✅
+
+### 2. 安装依赖并启动本工具
+
+```bash
+pip install -r requirements.txt
+python midi_server.py        # Windows 下也可双击 start.bat
+```
+
+启动后浏览器自动打开 http://127.0.0.1:8765；
+工具会自动连接「你的键盘 → loopMIDI 端口」。
+
+### 3. DAW 里接入（关键一步）
+
+以 Nuendo/Cubase 为例（其它 DAW 同理）：
+**Studio → Studio Setup → MIDI Port Setup**
+
+1. 找到 **loopMIDI 端口** → 勾选它的 **Input**
+2. **物理键盘的 Input 不要勾** —— 信号已由本工具过滤并转发到 loopMIDI，
+   若键盘直连 DAW 会造成信号重复/打架（血泪教训）
+3. 轨道输入源选 **All MIDI Inputs**（或直接选 loopMIDI 端口）
+4. 弹奏 → DAW 收到的就是"过滤后"的信号 🎹
 
 ## 文件
 
