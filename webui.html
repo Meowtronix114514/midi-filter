@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MIDI 信号监控面板</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#c9d1d9;
+    font-family:"Microsoft YaHei UI", "Segoe UI", sans-serif;
+    padding:24px; min-height:100vh;
+  }
+  h1 { font-size:18px; margin-bottom:4px; color:#e6edf3; }
+  .sub { color:#8b949e; font-size:12px; margin-bottom:20px; }
+  .row { display:flex; align-items:center; margin:12px 0; }
+  .name { width:150px; font-size:13px; }
+  .name .tag { font-size:10px; color:#8b949e; }
+  .meter { flex:1; display:flex; gap:2px; height:26px; align-items:center; }
+  .led { width:100%; height:20px; border-radius:2px; background:#161b22;
+         transition:box-shadow .05s; }
+  .value { width:70px; text-align:right; font-family:Consolas,monospace; font-size:14px; }
+  .status { margin-top:24px; font-size:12px; color:#8b949e; border-top:1px solid #21262d;
+            padding-top:10px; }
+  /* 亮灯颜色分级 */
+  .on { background:#00c853 !important; box-shadow:0 0 6px rgba(0,200,83,.8); }
+  .on-y { background:#ffd600 !important; box-shadow:0 0 6px rgba(255,214,0,.8); }
+  .on-r { background:#ff1744 !important; box-shadow:0 0 8px rgba(255,23,68,.9); }
+  .on-cc7 { background:#ff6d00 !important; box-shadow:0 0 6px rgba(255,109,0,.8); }
+  .on-pbL { background:#2979ff !important; box-shadow:0 0 6px rgba(41,121,255,.8); }
+  .on-pbR { background:#00b0ff !important; box-shadow:0 0 6px rgba(0,176,255,.8); }
+  .dim { opacity:.35; }
+  .stats { margin-top:18px; font-size:12px; color:#8b949e; }
+  .stats b { color:#ff6d00; font-family:Consolas,monospace; }
+  #stream { margin-top:6px; height:160px; overflow-y:auto; font-family:Consolas,monospace;
+            font-size:12px; background:#0a0e14; border:1px solid #21262d; border-radius:4px;
+            padding:6px; }
+  .srow { line-height:1.6; white-space:nowrap; }
+  .sok  { color:#7ee787; }
+  .sflt { color:#ff6d00; }
+  .sub2 { color:#58a6ff; }
+</style>
+</head>
+<body>
+  <h1>🎛️ MIDI 信号监控面板（Web）</h1>
+  <div class="sub">弯音 / CC7 已过滤 · 只放行 击键 · 调制轮 · 踏板 —— 后端推流，浏览器渲染</div>
+
+  <div class="row">
+    <div class="name">NOTE <span class="tag">击键</span></div>
+    <div class="meter" id="m-note"></div>
+    <div class="value" id="v-note">--</div>
+  </div>
+  <div class="row">
+    <div class="name">PITCH <span class="tag">弯音※过滤</span></div>
+    <div class="meter" id="m-pb"></div>
+    <div class="value" id="v-pb">--</div>
+  </div>
+  <div class="row">
+    <div class="name">CC1 <span class="tag">调制轮</span></div>
+    <div class="meter" id="m-cc1"></div>
+    <div class="value" id="v-cc1">--</div>
+  </div>
+  <div class="row">
+    <div class="name">CC7 <span class="tag">音量※过滤</span></div>
+    <div class="meter" id="m-cc7"></div>
+    <div class="value" id="v-cc7">--</div>
+  </div>
+  <div class="row">
+    <div class="name">CC64 <span class="tag">延音踏板</span></div>
+    <div class="meter" id="m-cc64"></div>
+    <div class="value" id="v-cc64">off</div>
+  </div>
+
+  <div class="stats">丢弃统计：弯音 <b id="st-pb">0</b> 条 ｜ CC7 <b id="st-cc7">0</b> 条 ｜ 数据流（最新在上）</div>
+  <div id="stream"></div>
+  <div class="status" id="status">终端输出（cmd 同款）：最新在上 ｜ 橙=被过滤 绿=透传 ｜ 保留最近200行</div>
+
+<script>
+const LED = 24;
+const SEG = { note:null, pb:null, cc1:null, cc7:null, cc64:null };
+const state = { note:0, pb:0, cc1:0, cc7:0, cc64:0 };
+
+function buildMeter(id) {
+  const box = document.getElementById('m-' + id);
+  const leds = [];
+  for (let i = 0; i < LED; i++) {
+    const s = document.createElement('div');
+    s.className = 'led';
+    box.appendChild(s);
+    leds.push(s);
+  }
+  return leds;
+}
+for (const k of Object.keys(SEG)) SEG[k] = buildMeter(k);
+
+function ledClass(kind, frac) {
+  if (frac >= 0.85) return kind === 'cc7' ? 'on-cc7' : 'on-r';
+  if (frac >= 0.65) return 'on-y';
+  return 'on';
+}
+
+function drawChannel(leds, frac, kind, dim) {
+  const lit = Math.round(frac * LED);
+  for (let i = 0; i < LED; i++) {
+    leds[i].className = 'led' + (i < lit ? ' ' + ledClass(kind, i / LED) : '');
+    if (dim && i >= lit) leds[i].classList.add('dim');
+  }
+}
+
+function drawPB(pitch) {
+  const center = LED / 2;
+  // pitch: -8192..8191；0 = 静置（中缝不亮）
+  // 方向已按你的琴反相校准：负值(下压) → 右侧亮；正值(上推) → 左侧亮
+  let lit = 0, side = 0; // side: -1 亮左, +1 亮右
+  if (pitch < 0) { side = 1;  lit = Math.round(-pitch / 8192 * center); }
+  if (pitch > 0) { side = -1; lit = Math.round(pitch / 8192 * center); }
+  for (let i = 0; i < LED; i++) {
+    let on = false, cls = '';
+    if (side < 0 && i < lit) { on = true; cls = 'on-pbL'; }
+    if (side > 0 && i >= center && i < center + lit) { on = true; cls = 'on-pbR'; }
+    SEG.pb[i].className = 'led' + (on ? ' ' + cls : '');
+  }
+}
+
+function draw() {
+  drawChannel(SEG.note, state.note / 127, 'note', false);
+  drawPB(state.pb);
+  drawChannel(SEG.cc1, state.cc1 / 127, 'cc1', false);
+  drawChannel(SEG.cc7, state.cc7 / 127, 'cc7', true);
+  const on = state.cc64 > 0;
+  for (let i = 0; i < LED; i++) SEG.cc64[i].className = 'led' + (on ? ' on' : '');
+  document.getElementById('v-note').textContent = state.note > 0 ? Math.round(state.note) : '--';
+  document.getElementById('v-pb').textContent = state.pb !== 0 ? Math.round(state.pb) : '--';
+  document.getElementById('v-cc1').textContent = state.cc1 > 0 ? Math.round(state.cc1) : '--';
+  document.getElementById('v-cc7').textContent = state.cc7 > 0 ? Math.round(state.cc7) : '--';
+  document.getElementById('v-cc64').textContent = on ? 'ON' : 'off';
+}
+
+function loop() {
+  const d = 0.82;
+  // NOTE 是瞬态敲击 → 衰减回落
+  // CC1/CC7/弯音 是"位置型"信号 → 保留最后值，推子停哪亮哪（不回弹）
+  if (state.note > 0) state.note = Math.max(0, state.note * d - 0.5);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+let cnt = { pb: 0, cc7: 0 };
+
+function addTerm(text) {
+  const box = document.getElementById('stream');
+  const div = document.createElement('div');
+  div.className = 'srow ' + (text.indexOf('被过滤') >= 0 ? 'sflt' : 'sok');
+  div.textContent = text;
+  box.insertBefore(div, box.firstChild);
+  while (box.children.length > 200) box.removeChild(box.lastChild);
+}
+
+const es = new EventSource('/events');
+es.onmessage = function (e) {
+  const data = JSON.parse(e.data);
+  // cmd 风格终端行（原样显示后端输出，力度条/被过滤标注都在里面）
+  if (data.line !== undefined) { addTerm(data.line); return; }
+  // 结构化数据 → 更新电平灯
+  if (data.note !== undefined) state.note = data.note;
+  if (data.pb !== undefined) {
+    state.pb = data.pb;
+    if (data.pb !== 0) { cnt.pb++; document.getElementById('st-pb').textContent = cnt.pb; }
+  }
+  if (data.cc1 !== undefined) state.cc1 = data.cc1;
+  if (data.cc7 !== undefined) { state.cc7 = data.cc7; cnt.cc7++; document.getElementById('st-cc7').textContent = cnt.cc7; }
+  if (data.cc64 !== undefined) state.cc64 = data.cc64;
+};
+es.onerror = function () {
+  document.getElementById('status').textContent = '推送断开，正在重连...（后端还开着吗？）';
+};
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
