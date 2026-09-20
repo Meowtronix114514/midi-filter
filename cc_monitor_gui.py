@@ -119,12 +119,17 @@ class App:
         mf = ttk.LabelFrame(frm, text="CC 监控（实时）", padding=6)
         mf.pack(fill="both", expand=True, pady=(8, 0))
         cols = ("cc", "name", "value", "bar", "count", "last")
-        self.tree = ttk.Treeview(mf, columns=cols, show="headings", height=10)
+        # 电平条用等宽字体渲染，保证 16 格长度恒定、█/░ 对齐（否则条长看着不固定）
+        style = ttk.Style(self.root)
+        style.configure("Meter.Treeview", font=("Consolas", 10), rowheight=24)
+        style.configure("Meter.Treeview.Heading", font=("Microsoft YaHei UI", 9))
+        self.tree = ttk.Treeview(mf, columns=cols, show="headings", height=10,
+                                 style="Meter.Treeview")
         for cid, text, w, anchor in [
             ("cc", "CC", 50, "center"),
             ("name", "名称", 130, "w"),
             ("value", "当前值", 60, "center"),
-            ("bar", "电平", 170, "w"),
+            ("bar", "电平", 230, "w"),
             ("count", "计数", 70, "center"),
             ("last", "最后时间", 80, "center"),
         ]:
@@ -335,6 +340,17 @@ class App:
     def _on_scale(self, _v):
         self.val_lbl.config(text=str(self.send_val.get()))
 
+    def _touch_watch(self, cc, val):
+        """手动操作时同步监控列表：不在监控中的 CC 自动加入，条立刻可见。"""
+        if cc in self.watch:
+            self.watch[cc].update(value=val, count=self.watch[cc].get("count", 0) + 1,
+                                  last=ts())
+        else:
+            self.watch[cc] = {"value": val, "count": 1, "last": ts()}
+            self._sync_tree()
+            self._save_config()
+            self.log(f"已自动添加 CC {cc} ({cc_name(cc)}) 到监控")
+
     def send_once(self):
         try:
             cc = int(self.send_cc.get())
@@ -349,9 +365,7 @@ class App:
                 return
             self.outport.send(mido.Message("control_change", control=cc, value=val))
             self.log(f"[手动] CC {cc} ({cc_name(cc)}) = {val}")
-            if cc in self.watch:
-                self.watch[cc].update(value=val, count=self.watch[cc].get("count", 0) + 1,
-                                      last=ts())
+            self._touch_watch(cc, val)
         except Exception as e:
             messagebox.showerror("错误", f"发送失败: {e}")
 
@@ -370,9 +384,7 @@ class App:
             val = max(0, min(127, int(self.send_val.get())))
             if self.outport is not None:
                 self.outport.send(mido.Message("control_change", control=cc, value=val))
-                if cc in self.watch:
-                    self.watch[cc].update(value=val, count=self.watch[cc].get("count", 0) + 1,
-                                          last=ts())
+                self._touch_watch(cc, val)
         except (ValueError, AssertionError):
             pass
         except Exception:
