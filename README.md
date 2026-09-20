@@ -74,5 +74,14 @@ python cc_monitor_gui.py     # 或双击 cc_monitor.bat
 ## 技术细节
 
 - MIDI 库：[mido](https://github.com/mido/mido) + [python-rtmidi](https://pypi.org/project/python-rtmidi/)
+- Python 环境：[uv](https://docs.astral.sh/uv/) 管理的独立 CPython 3.12（不依赖任何第三方自带解释器）
 - 桌面 GUI：tkinter（Python 自带，零额外依赖）
 - 端口打开失败自动重试、设备拔插自动重连、单实例互斥锁
+
+### 用 uv 重建环境（如需迁移/重装）
+
+```bash
+uv python install 3.12
+uv venv .venv --python 3.12
+uv pip install --python .venv\Scripts\python.exe -r requirements.txt
+```
