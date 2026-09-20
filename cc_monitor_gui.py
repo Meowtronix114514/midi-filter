@@ -401,16 +401,21 @@ class App:
             pass
 
     def _load_config(self):
+        d = {}
         try:
             with open(CONFIG, "r", encoding="utf-8") as f:
                 d = json.load(f)
-            for cc in d.get("watch", []):
-                self.watch[int(cc)] = {"value": 0, "count": 0, "last": "-"}
-            self.forward.set(d.get("forward", True))
-            self.drop_pitch.set(d.get("drop_pitch", True))
-            self._sync_tree()
         except Exception:
             pass
+        watch = d.get("watch")
+        if not watch:
+            # 默认监控：CC1 调制轮 / CC7 主音量 / CC64 延音踏板
+            watch = [1, 7, 64]
+        for cc in watch:
+            self.watch[int(cc)] = {"value": 0, "count": 0, "last": "-"}
+        self.forward.set(d.get("forward", True))
+        self.drop_pitch.set(d.get("drop_pitch", True))
+        self._sync_tree()
 
     def on_close(self):
         self._running = False
