@@ -12,6 +12,8 @@ backup_*/
 quarantine_*/
 loopmidi_installer/
 filter_settings.json
+stuck_config.json
+cc_monitor_config.json
 *.log
 
 # --- 旧版本地 GUI（不入库） ---
