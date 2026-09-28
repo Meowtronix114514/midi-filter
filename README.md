@@ -23,7 +23,8 @@
 | `midi_pitch_filter.py` | 核心过滤器：弯音过滤 + 力度整形 + 卡音看门狗，断线自动重连 |
 | `cc_monitor_gui.py` | **桌面端 CC 监控台**（tkinter 窗口） |
 | `cc_monitor.bat` | 双击启动 CC 监控台 |
-| `start.bat` | 双击运行过滤器（交互选端口） |
+| `keyboard_midi.py` | 全局捕获电脑键盘并转换为 MIDI 音符 |
+| `keyboard_midi.bat` | 双击启动键盘 MIDI 模式 |
 | `requirements.txt` | mido + python-rtmidi |
 
 ## 过滤器用法（midi_pitch_filter.py）
@@ -63,13 +64,26 @@ python cc_monitor_gui.py     # 或双击 cc_monitor.bat
 4. **手动调整 CC**：选 CC 号 → 拖滑块/填数值 → "发送一次"，或勾"持续发送"每 200ms 重发
 5. 可选：**转发所有消息到输出**（顶替过滤器在链路中的位置）、**过滤弯音**
 
+## 电脑键盘输入 MIDI
+
+运行 `keyboard_midi.bat`，选择 loopMIDI 输出端口并连接。DAW 中启用该 loopMIDI 端口后，可以用电脑键盘演奏：
+
+- 单独按 **Shift** 切换 MIDI 模式；开启后映射键会发 MIDI 音符，不再输入字符
+- 按住映射键发送 note-on，松开发送 note-off；固定力度为 100
+- `-` 降低一个八度，`Shift+=` 升高一个八度
+- 白键从 `A=C4` 开始：`A S D F G H J K L ; '` 对应 `1 2 3 4 5 6 7 1' 2' 3' 4'`
+- 黑键 `W E T Y U O P ]` 对应相邻白键之间的升半音
+
+其他未映射的键会正常传给当前窗口。单独按 Shift 才切换模式；`Shift+=` 会被识别为升八度。
+
 ## 完整上手（Windows）
 
 1. 安装 [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) 并创建一个虚拟端口
 2. `pip install -r requirements.txt`
-3. 双击 `start.bat`（或运行过滤器）建立 键盘 → loopMIDI 通道
+3. 按需运行 `python midi_pitch_filter.py` 建立 MIDI 键盘 → loopMIDI 通道
 4. 需要看/调 CC 时，双击 `cc_monitor.bat`
-5. DAW 里只勾 loopMIDI 端口的 Input，**物理键盘的 Input 不要勾**（避免信号重复）
+5. 需要用电脑键盘演奏 MIDI 时，双击 `keyboard_midi.bat` 并连接 loopMIDI 输出
+6. DAW 里勾选 loopMIDI 端口的 Input；若同时使用过滤器和键盘 MIDI，可让它们共同输出到该端口
 
 ## 技术细节
 
