@@ -68,13 +68,13 @@ python cc_monitor_gui.py     # 或双击 cc_monitor.bat
 
 运行 `keyboard_midi.bat`，选择 loopMIDI 输出端口并连接。DAW 中启用该 loopMIDI 端口后，可以用电脑键盘演奏：
 
-- 单独按 **Shift** 切换 MIDI 模式；开启后映射键会发 MIDI 音符，不再输入字符
+- 单独按 **Ctrl** 切换 MIDI 模式；开启后映射键会发 MIDI 音符，不再输入字符
 - 按住映射键发送 note-on，松开发送 note-off；固定力度为 100
-- `-` 降低一个八度，`Shift+=` 升高一个八度
+- 主键区 `-` / `=` 分别降／升半音；`Ctrl+-` / `Ctrl+=` 分别降／升八度（`Shift+=` 也可升半音）
 - 白键从 `A=C4` 开始：`A S D F G H J K L ; '` 对应 `1 2 3 4 5 6 7 1' 2' 3' 4'`
 - 黑键 `W E T Y U O P ]` 对应相邻白键之间的升半音
 
-其他未映射的键会正常传给当前窗口。单独按 Shift 才切换模式；`Shift+=` 会被识别为升八度。
+其他未映射的键会正常传给当前窗口。只有单独按 Ctrl 才切换模式，Ctrl+Space 等组合键仍会传给当前窗口；数字小键盘的 `+` / `-` 也不会被拦截。
 
 ## 完整上手（Windows）
 

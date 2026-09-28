@@ -82,11 +82,11 @@ WM_SYSKEYDOWN = 0x0104
 WM_SYSKEYUP = 0x0105
 WM_QUIT = 0x0012
 
-VK_SHIFT_KEYS = {0x10, 0xA0, 0xA1}
+VK_CTRL_KEYS = {0x11, 0xA2, 0xA3}
 VK_OEM_MINUS = 0xBD
 VK_OEM_PLUS = 0xBB
-MIN_OCTAVE_SHIFT = -5
-MAX_OCTAVE_SHIFT = 4
+MIN_TRANSPOSE_SEMITONES = -60
+MAX_TRANSPOSE_SEMITONES = 49
 
 # A..' are the white keys C4 through F5. The upper keyboard row supplies sharps.
 NOTE_KEYS = {
@@ -218,21 +218,36 @@ class KeyboardMidiController:
         self.midi_output = midi_output
         self._lock = threading.RLock()
         self.mode = False
-        self.octaves = 0
-        self._shift_keys = set()
-        self._shift_pending = False
-        self._shift_combo = False
+        self.transpose_semitones = 0
+        self._ctrl_keys = set()
+        self._ctrl_pending = False
+        self._ctrl_combo = False
         self._suppressed_keys = set()
         self._held_notes = {}
 
     def handle_key(self, vk_code, is_down):
         with self._lock:
-            if vk_code in VK_SHIFT_KEYS:
-                self._handle_shift(vk_code, is_down)
-                return False  # Preserve normal Shift shortcuts, including Shift+=.
+            if vk_code in VK_CTRL_KEYS:
+                if is_down:
+                    if vk_code not in self._ctrl_keys:
+                        if not self._ctrl_keys:
+                            self._ctrl_pending = True
+                            self._ctrl_combo = False
+                        self._ctrl_keys.add(vk_code)
+                else:
+                    self._ctrl_keys.discard(vk_code)
+                    if not self._ctrl_keys and self._ctrl_pending:
+                        toggle = not self._ctrl_combo
+                        self._ctrl_pending = False
+                        self._ctrl_combo = False
+                        if toggle:
+                            self.mode = not self.mode
+                            if not self.mode:
+                                self.release_notes()
+                return False  # Keep Ctrl shortcuts, including Ctrl+Space, working.
 
-            if is_down and self._shift_keys:
-                self._shift_combo = True
+            if is_down and self._ctrl_keys:
+                self._ctrl_combo = True
 
             if not is_down and vk_code in self._suppressed_keys:
                 self._suppressed_keys.discard(vk_code)
@@ -247,43 +262,30 @@ class KeyboardMidiController:
             if not self.mode:
                 return False
 
-            if is_down and vk_code in NOTE_KEYS:
-                note = max(0, min(127, NOTE_KEYS[vk_code] + self.octaves * 12))
+            if is_down and vk_code in NOTE_KEYS and not self._ctrl_keys:
+                note = NOTE_KEYS[vk_code] + self.transpose_semitones
                 self._suppressed_keys.add(vk_code)
                 self._held_notes[vk_code] = note
                 self.midi_output.send("note_on", note, 100)
                 return True
 
-            if is_down and vk_code == VK_OEM_MINUS and not self._shift_keys:
-                self.octaves = max(MIN_OCTAVE_SHIFT, self.octaves - 1)
+            if is_down and vk_code == VK_OEM_MINUS:
+                step = 12 if self._ctrl_keys else 1
+                self.transpose_semitones = max(
+                    MIN_TRANSPOSE_SEMITONES, self.transpose_semitones - step
+                )
                 self._suppressed_keys.add(vk_code)
                 return True
 
-            if is_down and vk_code == VK_OEM_PLUS and self._shift_keys:
-                self.octaves = min(MAX_OCTAVE_SHIFT, self.octaves + 1)
+            if is_down and vk_code == VK_OEM_PLUS:
+                step = 12 if self._ctrl_keys else 1
+                self.transpose_semitones = min(
+                    MAX_TRANSPOSE_SEMITONES, self.transpose_semitones + step
+                )
                 self._suppressed_keys.add(vk_code)
                 return True
 
             return False
-
-    def _handle_shift(self, vk_code, is_down):
-        if is_down:
-            if vk_code not in self._shift_keys:
-                if not self._shift_keys:
-                    self._shift_pending = True
-                    self._shift_combo = False
-                self._shift_keys.add(vk_code)
-            return
-
-        self._shift_keys.discard(vk_code)
-        if not self._shift_keys and self._shift_pending:
-            toggle = not self._shift_combo
-            self._shift_pending = False
-            self._shift_combo = False
-            if toggle:
-                self.mode = not self.mode
-                if not self.mode:
-                    self.release_notes()
 
     def release_notes(self):
         with self._lock:
@@ -293,7 +295,7 @@ class KeyboardMidiController:
 
     def snapshot(self):
         with self._lock:
-            return self.mode, self.octaves
+            return self.mode, self.transpose_semitones
 
 
 class GlobalKeyboardHook:
@@ -375,8 +377,8 @@ class App:
         self.hook = GlobalKeyboardHook(self.controller)
 
         self.port_var = tk.StringVar()
-        self.mode_var = tk.StringVar(value="MIDI 模式：关闭（单独按 Shift 开启）")
-        self.transpose_var = tk.StringVar(value="八度移调：+0")
+        self.mode_var = tk.StringVar(value="MIDI 模式：关闭（单独按 Ctrl 开启）")
+        self.transpose_var = tk.StringVar(value="移调：+0 半音")
         self.connection_var = tk.StringVar(value="未连接 MIDI 输出")
 
         self._build_ui()
@@ -413,7 +415,8 @@ class App:
 
         ttk.Label(frame, text="白键：A S D F G H J K L ; '").pack(anchor="w")
         ttk.Label(frame, text="黑键：W E T Y U O P ]").pack(anchor="w")
-        ttk.Label(frame, text="单独按 Shift：切换 MIDI 模式    -：降八度    Shift+=：升八度").pack(
+        ttk.Label(frame, text="单独按 Ctrl：切换 MIDI 模式").pack(anchor="w", pady=(3, 0))
+        ttk.Label(frame, text="主键区 - / =：移调半音；Ctrl+- / Ctrl+=：移调八度").pack(
             anchor="w", pady=(3, 0)
         )
         ttk.Label(frame, text="A 从 C4 开始；按住时发音，松开时止音；固定力度 100。", foreground="#555").pack(
@@ -448,7 +451,7 @@ class App:
 
     def _refresh_status(self):
         connected, connection_text = self.output.snapshot()
-        mode, octaves = self.controller.snapshot()
+        mode, transpose = self.controller.snapshot()
         self.connection_var.set(connection_text)
         self.connect_button.configure(text="断开" if connected else "连接")
         self.connect_button.configure(state="disabled" if connection_text.startswith("正在连接：") else "normal")
@@ -456,15 +459,15 @@ class App:
             self.mode_var.set(f"键盘监听不可用：{self.hook.error}")
             self.mode_label.configure(foreground="#a00")
         elif mode and connected:
-            self.mode_var.set("MIDI 模式：已开启（单独按 Shift 关闭）")
+            self.mode_var.set("MIDI 模式：已开启（单独按 Ctrl 关闭）")
             self.mode_label.configure(foreground="#080")
         elif mode:
             self.mode_var.set("MIDI 模式：已开启，但 MIDI 输出未连接")
             self.mode_label.configure(foreground="#a60")
         else:
-            self.mode_var.set("MIDI 模式：关闭（单独按 Shift 开启）")
+            self.mode_var.set("MIDI 模式：关闭（单独按 Ctrl 开启）")
             self.mode_label.configure(foreground="#555")
-        self.transpose_var.set(f"八度移调：{octaves:+d}")
+        self.transpose_var.set(f"移调：{transpose:+d} 半音")
         self.root.after(100, self._refresh_status)
 
     def close(self):
