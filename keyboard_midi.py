@@ -101,7 +101,7 @@ NOTE_KEYS = {
     0x59: 63,  # Y: D#4
     0x48: 64,  # H: E4 (3)
     0x4A: 65,  # J: F4 (4)
-    0x55: 66,  # U: F#4
+    0x49: 66,  # I: F#4
     0x4B: 67,  # K: G4 (5)
     0x4F: 68,  # O: G#4
     0x4C: 69,  # L: A4 (6)
@@ -414,7 +414,7 @@ class App:
         ttk.Label(frame, textvariable=self.transpose_var).pack(anchor="w", pady=(2, 10))
 
         ttk.Label(frame, text="白键：A S D F G H J K L ; '").pack(anchor="w")
-        ttk.Label(frame, text="黑键：W E T Y U O P ]").pack(anchor="w")
+        ttk.Label(frame, text="黑键：W E T Y I O P ]").pack(anchor="w")
         ttk.Label(frame, text="单独按 Ctrl：切换 MIDI 模式").pack(anchor="w", pady=(3, 0))
         ttk.Label(frame, text="主键区 - / =：移调半音；Ctrl+- / Ctrl+=：移调八度").pack(
             anchor="w", pady=(3, 0)
