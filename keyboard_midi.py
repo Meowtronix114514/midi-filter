@@ -85,30 +85,30 @@ WM_QUIT = 0x0012
 VK_CTRL_KEYS = {0x11, 0xA2, 0xA3}
 VK_OEM_MINUS = 0xBD
 VK_OEM_PLUS = 0xBB
-MIN_TRANSPOSE_SEMITONES = -60
-MAX_TRANSPOSE_SEMITONES = 49
+MIN_TRANSPOSE_SEMITONES = -55
+MAX_TRANSPOSE_SEMITONES = 54
 
-# A..' are the white keys C4 through F5. The upper keyboard row supplies sharps.
+# A..' follow the C-major white-note order, starting at G3 (scale degree 5).
 NOTE_KEYS = {
-    0x41: 60,  # A: C4
-    0x57: 61,  # W: C#4
-    0x53: 62,  # S: D4
-    0x45: 63,  # E: D#4
-    0x44: 64,  # D: E4
-    0x46: 65,  # F: F4
-    0x54: 66,  # T: F#4
-    0x47: 67,  # G: G4
-    0x59: 68,  # Y: G#4
-    0x48: 69,  # H: A4
-    0x55: 70,  # U: A#4
-    0x4A: 71,  # J: B4
-    0x4B: 72,  # K: C5
-    0x4F: 73,  # O: C#5
-    0x4C: 74,  # L: D5
-    0x50: 75,  # P: D#5
-    0xBA: 76,  # ;: E5
-    0xDE: 77,  # ': F5
-    0xDD: 78,  # ]: F#5
+    0x41: 55,  # A: G3 (5)
+    0x57: 56,  # W: G#3
+    0x53: 57,  # S: A3 (6)
+    0x45: 58,  # E: A#3
+    0x44: 59,  # D: B3 (7)
+    0x46: 60,  # F: C4 (1)
+    0x54: 61,  # T: C#4
+    0x47: 62,  # G: D4 (2)
+    0x59: 63,  # Y: D#4
+    0x48: 64,  # H: E4 (3)
+    0x4A: 65,  # J: F4 (4)
+    0x55: 66,  # U: F#4
+    0x4B: 67,  # K: G4 (5)
+    0x4F: 68,  # O: G#4
+    0x4C: 69,  # L: A4 (6)
+    0x50: 70,  # P: A#4
+    0xBA: 71,  # ;: B4 (7)
+    0xDE: 72,  # ': C5 (1)
+    0xDD: 73,  # ]: C#5
 }
 
 class MidiOutput:
@@ -419,7 +419,7 @@ class App:
         ttk.Label(frame, text="主键区 - / =：移调半音；Ctrl+- / Ctrl+=：移调八度").pack(
             anchor="w", pady=(3, 0)
         )
-        ttk.Label(frame, text="A 从 C4 开始；按住时发音，松开时止音；固定力度 100。", foreground="#555").pack(
+        ttk.Label(frame, text="A 从 G3（C 大调的 5）开始；按住发音、松开止音；力度固定为 100。", foreground="#555").pack(
             anchor="w", pady=(10, 0)
         )
 
