@@ -16,6 +16,7 @@ MIDI CC 监控台 (桌面端 tkinter) - v1
     python cc_monitor_gui.py          # 打开桌面窗口
     双击 cc_monitor.bat 也可以
 """
+import argparse
 import json
 import os
 import time
@@ -60,8 +61,9 @@ def ts():
 
 
 class App:
-    def __init__(self, root):
+    def __init__(self, root, force_block_cc7=False):
         self.root = root
+        self.force_block_cc7 = force_block_cc7
         root.title("MIDI CC 监控台")
         root.geometry("860x680")
 
@@ -433,7 +435,7 @@ class App:
             self.watch[int(cc)] = {"value": 0, "count": 0, "last": "-"}
         self.forward.set(d.get("forward", True))
         self.drop_pitch.set(d.get("drop_pitch", True))
-        self.block_cc7.set(d.get("block_cc7", False))
+        self.block_cc7.set(bool(d.get("block_cc7", False)) or self.force_block_cc7)
         self._sync_tree()
 
     def on_close(self):
@@ -444,8 +446,13 @@ class App:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="MIDI CC 监控台")
+    parser.add_argument("--block-cc7", action="store_true",
+                        help="启动时默认过滤 CC7 主音量（界面中可临时取消）")
+    args = parser.parse_args()
+
     root = tk.Tk()
-    app = App(root)
+    app = App(root, force_block_cc7=args.block_cc7)
     # 定时刷新表格数值
     def tick():
         if app._running:
