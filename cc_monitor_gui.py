@@ -76,6 +76,7 @@ class App:
 
         self.forward = tk.BooleanVar(value=True)
         self.drop_pitch = tk.BooleanVar(value=True)
+        self.block_cc7 = tk.BooleanVar(value=False)
         self.continuous = tk.BooleanVar(value=False)
         self._cont_job = None
         self._last_health = time.time()
@@ -113,6 +114,8 @@ class App:
         ttk.Checkbutton(ff, text="转发所有消息到输出", variable=self.forward,
                         command=self._save_config).pack(side="left")
         ttk.Checkbutton(ff, text="过滤弯音(Pitch Bend)", variable=self.drop_pitch,
+                        command=self._save_config).pack(side="left", padx=(12, 0))
+        ttk.Checkbutton(ff, text="过滤 CC7（主音量）", variable=self.block_cc7,
                         command=self._save_config).pack(side="left", padx=(12, 0))
 
         # ---- 监控表 ----
@@ -271,6 +274,8 @@ class App:
         if self.forward.get():
             if self.drop_pitch.get() and msg.type == "pitchwheel":
                 return
+            if self.block_cc7.get() and msg.type == "control_change" and msg.control == 7:
+                return
             try:
                 if self.outport is not None:
                     self.outport.send(msg)
@@ -408,6 +413,7 @@ class App:
                     "watch": sorted(self.watch.keys()),
                     "forward": self.forward.get(),
                     "drop_pitch": self.drop_pitch.get(),
+                    "block_cc7": self.block_cc7.get(),
                 }, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
@@ -427,6 +433,7 @@ class App:
             self.watch[int(cc)] = {"value": 0, "count": 0, "last": "-"}
         self.forward.set(d.get("forward", True))
         self.drop_pitch.set(d.get("drop_pitch", True))
+        self.block_cc7.set(d.get("block_cc7", False))
         self._sync_tree()
 
     def on_close(self):
